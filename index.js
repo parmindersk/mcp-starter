@@ -4,6 +4,7 @@ const verifyToken = require("./verifyToken");
 const loadFunctions = require("./functionLoader");
 const { functions, manifestEntries } = loadFunctions();
 const logger = require("./utils/logger");
+const projectMeta = require("./projectMeta.json");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,8 +20,8 @@ app.use(express.json());
 app.get("/mcp-manifest.json", (req, res) => {
   res.json({
     schema_version: "1.0",
-    name: "mcp-starter",
-    description: "MCP server with JWT and schema validation",
+    name: projectMeta.name,
+    description: projectMeta.description,
     authentication: {
       type: "bearer",
       instructions: "Use a tenant-issued JWT in the Authorization header",
@@ -64,18 +65,7 @@ app.post("/mcp", async (req, res) => {
 });
 
 app.get("/mcp", (req, res) => {
-  res.json({
-    name: "mcp-starter",
-    version: "1.0.0",
-    description: "MCP starter server with JWT and schema validation",
-    endpoints: {
-      rpc: "/mcp",
-      manifest: "/mcp-manifest.json",
-      health: "/healthz",
-    },
-    author: "Parminder Singh",
-    homepage: "https://github.com/parmindersk/mcp-starter",
-  });
+  res.json(projectMeta);
 });
 
 app.get("/healthz", (req, res) => {

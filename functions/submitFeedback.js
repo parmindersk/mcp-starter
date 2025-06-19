@@ -9,7 +9,7 @@ async function submitFeedback({ tenantId, message, rating }) {
 }
 
 submitFeedback.meta = {
-  description: "Submits feedback with an optional rating",
+  description: "Submits feedback",
   schema: {
     type: "object",
     properties: {

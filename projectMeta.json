@@ -1,0 +1,12 @@
+{
+  "name": "mcp-starter",
+  "version": "1.0.0",
+  "description": "MCP starter server with JWT and schema validation",
+  "endpoints": {
+    "rpc": "/mcp",
+    "manifest": "/mcp-manifest.json",
+    "health": "/healthz"
+  },
+  "author": "Parminder Singh",
+  "homepage": "https://github.com/parmindersk/mcp-starter"
+}
