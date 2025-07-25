@@ -1,12 +1,19 @@
-async function ping({ tenantId }) {
+const { z } = require("zod");
+async function ping({ message }) {
   return {
-    message: `pong from tenant ${tenantId}`,
-    timestamp: new Date().toISOString(),
+    content: [
+      {
+        type: "text",
+        text: `pong ${message}`,
+      },
+    ],
   };
 }
 
 ping.meta = {
-  description: "Simple health check function. Returns pong and tenant info.",
+  title: "Ping Tool",
+  description: "Responds with a pong message.",
+  inputSchema: { message: z.string() },
 };
 
 module.exports = ping;

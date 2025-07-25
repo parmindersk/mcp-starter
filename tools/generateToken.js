@@ -1,11 +1,11 @@
+require("dotenv").config({ path: "../.env" });
 const jwt = require("jsonwebtoken");
 
 const args = process.argv.slice(2);
 const tenantArg = args.find((arg) => arg.startsWith("--tenant="));
 const secretArg = args.find((arg) => arg.startsWith("--secret="));
-const scopesArg = args.find((arg) => arg.startsWith("--scopes="));
 
-if (!tenantArg || !secretArg) {
+if (!tenantArg) {
   console.error(
     "Usage: node tools/generateToken.js --tenant=acme --secret=your_secret [--scopes=scope1,scope2]"
   );
@@ -13,13 +13,11 @@ if (!tenantArg || !secretArg) {
 }
 
 const tenantId = tenantArg.split("=")[1];
-const secret = secretArg.split("=")[1];
-const scopes = scopesArg ? scopesArg.split("=")[1].split(",") : [];
+const secret = process.env.JWT_SECRET || secretArg.split("=")[1];
 
 const token = jwt.sign(
   {
     tenant_id: tenantId,
-    scopes,
   },
   secret,
   { expiresIn: "1h" }

@@ -1,23 +1,21 @@
-async function submitFeedback({ tenantId, message, rating }) {
+const { z } = require("zod");
+async function submitFeedback({ message, rating }) {
   return {
-    status: "received",
-    tenantId,
-    message,
-    rating,
-    receivedAt: new Date().toISOString(),
+    content: [
+      {
+        type: "text",
+        text: `Feedback recorded at ${new Date().toISOString()}: ${message} with rating ${rating}`,
+      },
+    ],
   };
 }
 
 submitFeedback.meta = {
+  title: "Feedback Submission Tool",
   description: "Submits feedback",
-  schema: {
-    type: "object",
-    properties: {
-      message: { type: "string", minLength: 5 },
-      rating: { type: "number", minimum: 1, maximum: 5 },
-    },
-    required: ["message", "rating"],
-    additionalProperties: false,
+  inputSchema: {
+    message: z.string().min(5, "At least 5 characters long"),
+    rating: z.number().min(1).max(5),
   },
 };
 

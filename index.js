@@ -1,77 +1,84 @@
-require("dotenv").config();
 const express = require("express");
-const verifyToken = require("./verifyToken");
-const loadFunctions = require("./functionLoader");
+const { randomUUID } = require("node:crypto");
+const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
+const {
+  StreamableHTTPServerTransport,
+} = require("@modelcontextprotocol/sdk/server/streamableHttp.js");
+const { isInitializeRequest } = require("@modelcontextprotocol/sdk/types.js");
+const { z } = require("zod");
+
+const loadFunctions = require("./functionLoader.js");
 const { functions, manifestEntries } = loadFunctions();
-const logger = require("./utils/logger");
-const projectMeta = require("./projectMeta.json");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-  console.error("JWT_SECRET not set in .env");
-  process.exit(1);
-}
-
 app.use(express.json());
 
-app.get("/mcp-manifest.json", (req, res) => {
-  res.json({
-    schema_version: "1.0",
-    name: projectMeta.name,
-    description: projectMeta.description,
-    authentication: {
-      type: "bearer",
-      instructions: "Use a tenant-issued JWT in the Authorization header",
-    },
-    functions: manifestEntries,
-  });
-});
+const transports = {};
+
+const registerTools = (server) => {
+  const fnNames = Object.keys(functions);
+  for (const fnName of fnNames) {
+    const { handler, meta } = functions[fnName];
+    server.registerTool(fnName, meta, handler);
+  }
+};
 
 app.post("/mcp", async (req, res) => {
-  const { method, params = {} } = req.body;
+  const sessionId = req.headers["mcp-session-id"];
+  let transport;
 
-  if (!method || typeof method !== "string") {
-    return res.status(400).json({ error: "Missing or invalid method name" });
+  if (sessionId && transports[sessionId]) {
+    transport = transports[sessionId];
+  } else if (!sessionId && isInitializeRequest(req.body)) {
+    transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => randomUUID(),
+      onsessioninitialized: (sessionId) => {
+        transports[sessionId] = transport;
+      },
+    });
+
+    transport.onclose = () => {
+      if (transport.sessionId) {
+        delete transports[transport.sessionId];
+      }
+    };
+
+    const server = new McpServer({
+      name: "cv-mcp",
+      version: "1.0.0",
+    });
+    registerTools(server);
+    await server.connect(transport);
+  } else {
+    res.status(400).json({
+      jsonrpc: "2.0",
+      error: {
+        code: -32000,
+        message: "Bad Request: No valid session ID provided",
+      },
+      id: null,
+    });
+    return;
   }
 
-  try {
-    const token = req.headers.authorization;
-    const claims = verifyToken(token, JWT_SECRET);
-    const tenantId = claims.tenant_id;
+  await transport.handleRequest(req, res, req.body);
+});
 
-    const fnEntry = functions[method];
-    if (!fnEntry) {
-      return res.status(404).json({ error: `Function '${method}' not found` });
-    }
-
-    // Validate input params using JSON schema
-    if (fnEntry.validate && !fnEntry.validate(params)) {
-      return res.status(400).json({
-        error: "Schema validation failed",
-        details: fnEntry.validate.errors,
-      });
-    }
-
-    const result = await fnEntry.handler({ ...params, tenantId });
-    logger.info(`${method} executed for tenant ${tenantId}`);
-    res.json({ result });
-  } catch (err) {
-    logger.error(`${method || "unknown"} failed: ${err.message}`);
-    res.status(400).json({ error: err.message });
+const handleSessionRequest = async (req, res) => {
+  const sessionId = req.headers["mcp-session-id"];
+  if (!sessionId || !transports[sessionId]) {
+    res.status(400).send("Invalid or missing session ID");
+    return;
   }
-});
 
-app.get("/mcp", (req, res) => {
-  res.json(projectMeta);
-});
+  const transport = transports[sessionId];
+  await transport.handleRequest(req, res);
+};
 
-app.get("/healthz", (req, res) => {
-  res.status(200).send("OK");
-});
+app.get("/mcp", handleSessionRequest);
 
-app.listen(PORT, () => {
-  console.log(`MCP Starter listening on http://localhost:${PORT}/mcp`);
-});
+app.delete("/mcp", handleSessionRequest);
+
+app.listen(3000, () =>
+  console.log("MCP server running on http://localhost:3000")
+);
