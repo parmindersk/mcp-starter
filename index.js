@@ -6,6 +6,7 @@ const {
 } = require("@modelcontextprotocol/sdk/server/streamableHttp.js");
 const { isInitializeRequest } = require("@modelcontextprotocol/sdk/types.js");
 const { z } = require("zod");
+require("dotenv").config();
 
 const loadFunctions = require("./functionLoader.js");
 const { functions, manifestEntries } = loadFunctions();
@@ -44,7 +45,7 @@ app.post("/mcp", async (req, res) => {
     };
 
     const server = new McpServer({
-      name: "cv-mcp",
+      name: process.env.MCP_SERVER_NAME || "MCP Server",
       version: "1.0.0",
     });
     registerTools(server);
@@ -79,6 +80,8 @@ app.get("/mcp", handleSessionRequest);
 
 app.delete("/mcp", handleSessionRequest);
 
-app.listen(3000, () =>
-  console.log("MCP server running on http://localhost:3000")
+const port = process.env.PORT || 3000;
+
+app.listen(port, () =>
+  console.log(`MCP server running on http://localhost:${port}`)
 );
